@@ -2,7 +2,6 @@ package com.example.assignment
 
 import android.app.RecoverableSecurityException
 import android.content.ContentUris
-import android.content.IntentSender
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -183,30 +182,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun subscribeToVideos() {
-        videos.observe(this) { videoList ->
-            d("MainActivityaefwef", "videoList: $videoList")
-            working.observe(this) {
-                if (it) {
-                    binding.saveButton.isEnabled = false
-                    binding.readButton.isEnabled = false
-                    binding.progressBar.isVisible = true
-                } else {
-                    binding.saveButton.isEnabled = true
-                    binding.readButton.isEnabled = true
-                    binding.progressBar.isVisible = false
-                }
-            }
-            if (videoList.isEmpty()) {
-                binding.saveButton.isEnabled = false
-                binding.readButton.isEnabled = true
-            } else {
-                binding.saveButton.isEnabled = true
-            }
-        }
-
-    }
-
     @RequiresApi(Build.VERSION_CODES.R)
     private suspend fun deleteVideos() {
         withContext(IO) {
@@ -234,6 +209,30 @@ class MainActivity : AppCompatActivity() {
                 e.printStackTrace()
             }
         }
+    }
+
+    private fun subscribeToVideos() {
+        videos.observe(this) { videoList ->
+            d("MainActivityaefwef", "videoList: $videoList")
+            working.observe(this) {
+                if (it) {
+                    binding.saveButton.isEnabled = false
+                    binding.readButton.isEnabled = false
+                    binding.progressBar.isVisible = true
+                } else {
+                    binding.saveButton.isEnabled = true
+                    binding.readButton.isEnabled = true
+                    binding.progressBar.isVisible = false
+                }
+            }
+            if (videoList.isEmpty()) {
+                binding.saveButton.isEnabled = false
+                binding.readButton.isEnabled = true
+            } else {
+                binding.saveButton.isEnabled = true
+            }
+        }
+
     }
 
 }
