@@ -1,13 +1,18 @@
 package com.example.assignment
 
+import android.app.RecoverableSecurityException
 import android.content.ContentUris
+import android.content.IntentSender
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log.d
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
@@ -24,13 +29,15 @@ import java.io.IOException
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var readPermissionGranted: Boolean = false
-    private var videoURIs: ArrayList<VideoFile> = ArrayList()
-    private var videos: MutableLiveData<ArrayList<VideoFile>> =
-        MutableLiveData<ArrayList<VideoFile>>()
+    private var videoURIs: MutableList<VideoFile> = mutableListOf()
+    private var videos: MutableLiveData<List<VideoFile>> =
+        MutableLiveData<List<VideoFile>>()
     private var working: MutableLiveData<Boolean> = MutableLiveData(false)
 
     private lateinit var permissionsLauncher: ActivityResultLauncher<Array<String>>
+    private lateinit var intentSenderLauncher: ActivityResultLauncher<IntentSenderRequest>
 
+    @RequiresApi(Build.VERSION_CODES.R)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -43,12 +50,23 @@ class MainActivity : AppCompatActivity() {
         updateOrRequestPermissions()
         subscribeToVideos()
 
+        intentSenderLauncher =
+            registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {
+                if (it.resultCode == RESULT_OK) {
+                    d("TAG", "onCreate: Permission Granted")
+                    Toast.makeText(this, "Videos Deleted Successfully", Toast.LENGTH_SHORT).show()
+                } else {
+                    d("TAG", "onCreate: Permission Denied")
+                    Toast.makeText(this, "Videos Deletion Unsuccessful", Toast.LENGTH_SHORT).show()
+                }
+            }
+
         binding.readButton.setOnClickListener {
             if (readPermissionGranted) {
                 videoURIs.clear()
                 videos.postValue(videoURIs)
                 lifecycleScope.launch(IO) {
-                    videoURIs = loadVideosFromExternalStorage() as ArrayList<VideoFile>
+                    videoURIs = loadVideosFromExternalStorage().toMutableList()
                     videos.postValue(videoURIs)
                     d("MainActivity", "videoURIs: $videoURIs")
                     withContext(Dispatchers.Main) {
@@ -74,6 +92,12 @@ class MainActivity : AppCompatActivity() {
                         ).show()
                     }
                 }
+            }
+        }
+
+        binding.format.setOnClickListener {
+            lifecycleScope.launch {
+                deleteVideos()
             }
         }
     }
@@ -181,6 +205,35 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+    }
+
+    @RequiresApi(Build.VERSION_CODES.R)
+    private suspend fun deleteVideos() {
+        withContext(IO) {
+            try {
+                val intentSender =
+                    MediaStore.createDeleteRequest(
+                        contentResolver,
+                        videos.value!!.map { it.contentUri }).intentSender
+                intentSender.let { sender ->
+                    intentSenderLauncher.launch(
+                        IntentSenderRequest.Builder(sender).build()
+                    )
+                }
+
+            } catch (e: SecurityException) {
+                val recoverableSecurityException = e as? RecoverableSecurityException
+                val intentSender =
+                    recoverableSecurityException?.userAction?.actionIntent?.intentSender
+                intentSender?.let { sender ->
+                    intentSenderLauncher.launch(
+                        IntentSenderRequest.Builder(sender).build()
+                    )
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
 }
